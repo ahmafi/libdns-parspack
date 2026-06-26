@@ -1,6 +1,7 @@
 package parspack
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,27 +22,54 @@ func (p *Provider) getClient() *http.Client {
 	return p.client
 }
 
-func (p *Provider) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+func (p *Provider) doRequest(ctx context.Context, method, path string, reqBody any, resBody any) error {
+	var body io.Reader
+
+	if reqBody != nil {
+		var reqBodyBuf bytes.Buffer
+		if err := json.NewEncoder(&reqBodyBuf).Encode(reqBody); err != nil {
+			return err
+		}
+		body = &reqBodyBuf
+	}
+
 	req, err := http.NewRequestWithContext(ctx, method, baseUrl+path, body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+p.APIToken)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-	return p.getClient().Do(req)
-}
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
 
-func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, error) {
-	resp, err := p.doRequest(ctx, http.MethodGet, "/external/api/v1/zones", nil)
+	}
+
+	resp, err := p.getClient().Do(req)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
+	// body, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(body))
+
+	err = json.NewDecoder(resp.Body).Decode(&resBody)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, error) {
 	var body serviceList
-	err = json.NewDecoder(resp.Body).Decode(&body)
+
+	err := p.doRequest(ctx, http.MethodGet, "/external/api/v1/zones", nil, &body)
 	if err != nil {
 		return "", err
 	}
@@ -62,14 +90,8 @@ func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, err
 }
 
 func (p *Provider) indexDnsRecord(ctx context.Context, zoneUuid string) (*dnsDataList, error) {
-	resp, err := p.doRequest(ctx, http.MethodGet, "/external/api/v2/zones/"+zoneUuid+"/dns-records", nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
 	var body dnsDataList
-	err = json.NewDecoder(resp.Body).Decode(&body)
+	err := p.doRequest(ctx, http.MethodGet, "/external/api/v2/zones/"+zoneUuid+"/dns-records", nil, &body)
 	if err != nil {
 		return nil, err
 	}
@@ -79,4 +101,18 @@ func (p *Provider) indexDnsRecord(ctx context.Context, zoneUuid string) (*dnsDat
 	}
 
 	return &body, nil
+}
+
+func (p *Provider) storeDnsRecord(ctx context.Context, zoneUuid string, reqBody storeDnsData) error {
+	var body storeDnsDataResp
+	err := p.doRequest(ctx, http.MethodPost, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, body)
+	if err != nil {
+		return err
+	}
+
+	if !body.Success {
+		return errors.New("Store DNS records error. Message:" + body.Message)
+	}
+
+	return nil
 }

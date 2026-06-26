@@ -118,3 +118,63 @@ func (d dnsData) libdnsRecord() ([]libdns.Record, error) {
 
 	return libdnsRecords, nil
 }
+
+type storeDnsData struct {
+	Host          string             `json:"host"`
+	Type          string             `json:"type"`
+	Ttl           int                `json:"ttl"`
+	Proxy         string             `json:"proxy"`
+	LoadBalanceId *string            `json:"load_balance_id"`
+	Record        storeDnsDataRecord `json:"record"`
+}
+
+type storeDnsDataRecord struct {
+	Content  string  `json:"content"`
+	Port     *uint16 `json:"port"`
+	Weight   *uint16 `json:"weight"`
+	Priority *uint16 `json:"priority"`
+	Flags    *uint8  `json:"flags"`
+	Tag      *string `json:"tag"`
+}
+
+type storeDnsDataResp struct {
+	parspackResponse
+	Data []struct{} `json:"data"`
+}
+
+func toParsPackStoreDnsData(record libdns.Record) (storeDnsData, error) {
+	rr := record.RR()
+
+	parspackData := storeDnsData{
+		Host:   rr.Name,
+		Type:   rr.Type,
+		Ttl:    int(rr.TTL.Seconds()),
+		Proxy:  "direct", // no CDN by default
+		Record: storeDnsDataRecord{},
+	}
+
+	switch r := record.(type) {
+	case libdns.Address:
+		parspackData.Record.Content = r.IP.String()
+	case libdns.CAA:
+		parspackData.Record.Content = r.Value
+		parspackData.Record.Flags = &r.Flags
+		parspackData.Record.Tag = &r.Tag
+	case libdns.CNAME:
+		parspackData.Record.Content = r.Target
+	case libdns.MX:
+		parspackData.Record.Content = r.Target
+		parspackData.Record.Priority = &r.Preference
+	case libdns.NS:
+		parspackData.Record.Content = r.Target
+	case libdns.SRV:
+		parspackData.Record.Content = r.Target
+		parspackData.Record.Priority = &r.Priority
+		parspackData.Record.Weight = &r.Weight
+		parspackData.Record.Port = &r.Port
+	case libdns.TXT:
+		parspackData.Record.Content = r.Text
+	}
+
+	return parspackData, nil
+}

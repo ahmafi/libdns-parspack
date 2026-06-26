@@ -18,10 +18,7 @@ import (
 
 // Provider facilitates DNS record manipulation with ParsPack.
 type Provider struct {
-	// TODO: Put config fields here (with snake_case json struct tags on exported fields), for example:
 	APIToken string `json:"api_token,omitempty"`
-
-	// Exported config fields should be JSON-serializable or omitted (`json:"-"`)
 
 	client *http.Client
 }
@@ -52,8 +49,26 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	// Make sure to return RR-type-specific structs, not libdns.RR structs.
-	return nil, fmt.Errorf("TODO: not implemented")
+	zoneUuid, err := p.zoneToZoneUuid(ctx, zone)
+	if err != nil {
+		return nil, err
+	}
+
+	var createdRecords []libdns.Record
+	for _, r := range records {
+		parsPackData, err := toParsPackStoreDnsData(r)
+		if err != nil {
+			return nil, err
+		}
+		err = p.storeDnsRecord(ctx, zoneUuid, parsPackData)
+		if err != nil {
+			// should we ignore this error or return when the record already exists?
+			return createdRecords, err
+		}
+		createdRecords = append(createdRecords, r)
+	}
+
+	return createdRecords, nil
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
