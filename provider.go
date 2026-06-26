@@ -4,16 +4,9 @@ package parspack
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/libdns/libdns"
 )
-
-// TODO: Providers must not require additional provisioning steps by the callers; it
-// should work simply by populating a struct and calling methods on it. If your DNS
-// service requires long-lived state or some extra provisioning step, do it implicitly
-// when methods are called; sync.Once can help with this, and/or you can use a
-// sync.(RW)Mutex in your Provider struct to synchronize implicit provisioning.
 
 // Provider facilitates DNS record manipulation with ParsPack.
 type Provider struct {
@@ -143,11 +136,22 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	}
 
 	for _, d := range toDelete {
-		p.deleteDnsRecord(ctx, zoneUuid, d)
+		err := p.deleteDnsRecord(ctx, zoneUuid, d)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Make sure to return RR-type-specific structs, not libdns.RR structs.
-	return nil, fmt.Errorf("TODO: not implemented")
+	libdnsRecords := make([]libdns.Record, 0, len(toDelete))
+	for _, d := range toDelete {
+		records, err := d.libdnsRecord()
+		if err != nil {
+			return nil, err
+		}
+		libdnsRecords = append(libdnsRecords, records...)
+	}
+
+	return libdnsRecords, nil
 }
 
 // ListZones lists all the zones in the account.

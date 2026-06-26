@@ -56,7 +56,7 @@ type dnsRecord struct {
 
 func (d dnsData) libdnsRecord() ([]libdns.Record, error) {
 	name := d.Host
-	ttl := time.Duration(d.Ttl)
+	ttl := time.Duration(d.Ttl) * time.Second
 
 	libdnsRecords := make([]libdns.Record, 0, len(d.Records))
 
@@ -114,6 +114,17 @@ func (d dnsData) libdnsRecord() ([]libdns.Record, error) {
 				TTL:  ttl,
 				Text: r.Content,
 			})
+		default:
+			libdnsRecord, err := libdns.RR{
+				Name: name,
+				TTL:  ttl,
+				Type: d.Type,
+				Data: r.Content,
+			}.Parse()
+			if err != nil {
+				return nil, err
+			}
+			libdnsRecords = append(libdnsRecords, libdnsRecord)
 		}
 
 	}
@@ -151,7 +162,12 @@ type deleteDnsData struct {
 }
 
 type deleteDnsDataRecord struct {
-	Content string `json:"content"`
+	Content  string  `json:"content"`
+	Port     *uint16 `json:"port"`
+	Weight   *uint16 `json:"weight"`
+	Priority *uint16 `json:"priority"`
+	Flags    *uint8  `json:"flags"`
+	Tag      *string `json:"tag"`
 }
 
 type deleteDnsDataResp struct {
@@ -169,7 +185,9 @@ func toParsPackDnsData(input libdns.Record) (dnsData, error) {
 		Proxy: "direct", // no CDN by default
 	}
 
-	record := dnsRecord{}
+	record := dnsRecord{
+		Content: rr.Data,
+	}
 
 	switch r := input.(type) {
 	case libdns.Address:

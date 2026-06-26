@@ -1,24 +1,3 @@
-DEVELOPER INSTRUCTIONS:
-=======================
-
-This repo is a template for developers to use when creating new [libdns](https://github.com/libdns/libdns) provider implementations.
-
-Be sure to update:
-
-- The package name
-- The Go module name in go.mod
-- The latest `libdns/libdns` version in go.mod
-- All comments and documentation, including README below and godocs
-- License (must be compatible with Apache/MIT)
-- All "TODO:"s is in the code
-- All methods that currently do nothing
-
-**Please be sure to conform to the semantics described at the [libdns godoc](https://github.com/libdns/libdns).**
-
-_Remove this section from the readme before publishing._
-
----
-
 ParsPack for [`libdns`](https://github.com/libdns/libdns)
 =======================
 
@@ -26,4 +5,28 @@ ParsPack for [`libdns`](https://github.com/libdns/libdns)
 
 This package implements the [libdns interfaces](https://github.com/libdns/libdns) for ParsPack, allowing you to manage DNS records.
 
-TODO: Show how to configure and use. Explain any caveats.
+## Authentication
+
+1. You need to a zone (domain) in your ParsPack panel.
+2. Go to CDN Sections and you can see the button for creating a new token.
+
+![ParsPack CDN Panel](assets/images/screenshot-1.webp)
+
+3. Create a new API token with the following scopes:
+
+![Create API Token Dialog](assets/images/screenshot-2.webp)
+
+- لیست سرویس‌ها
+- لیست رکوردهای DNS
+- ایجاد رکورد DNS
+- آپدیت رکورد DNS
+- حذف رکورد DNS
+
+
+## Example Configuration
+
+```golang
+p := parspack.Provider{
+    APIToken: "your-apitoken-here",
+}
+```

@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/libdns/libdns/libdnstest"
 	"github.com/libdns/parspack"
@@ -26,6 +27,7 @@ func TestParsPackProvider(t *testing.T) {
 	}
 
 	suite := libdnstest.NewTestSuite(provider, testZone)
+	suite.Timeout = 80 * time.Second
 	suite.SkipRRTypes = map[string]bool{
 		"AAAA":  true, // Skip MX record tests
 		"SVCB":  true, // Skip SVCB record tests

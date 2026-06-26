@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const baseUrl = "https://my.parspack.com/cdnapi"
@@ -36,17 +37,15 @@ func (p *Provider) doRequest(ctx context.Context, method, path string, reqBody a
 
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
-	// body, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(string(body))
 
 	err = json.NewDecoder(resp.Body).Decode(&resBody)
 	if err != nil {
@@ -65,10 +64,10 @@ func (p *Provider) getServiceList(ctx context.Context) ([]service, error) {
 	}
 
 	if !body.Success {
-		return nil, errors.New("Get service list error. Message:" + body.Message)
+		return nil, errors.New("Get Service List Failed. Message:" + body.Message)
 	}
 
-	return body.Data, errors.New("Zone not found")
+	return body.Data, nil
 }
 
 func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, error) {
@@ -96,7 +95,7 @@ func (p *Provider) indexDnsRecord(ctx context.Context, zoneUuid string) ([]dnsDa
 	}
 
 	if !body.Success {
-		return nil, errors.New("Get DNS records error. Message:" + body.Message)
+		return nil, errors.New("Get DNS Records Failed. Message:" + body.Message)
 	}
 
 	return body.Data, nil
@@ -119,13 +118,13 @@ func (p *Provider) storeDnsRecord(ctx context.Context, zoneUuid string, data dns
 	}
 
 	var body storeDnsDataResp
-	err := p.doRequest(ctx, http.MethodPost, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, body)
+	err := p.doRequest(ctx, http.MethodPost, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, &body)
 	if err != nil {
 		return err
 	}
 
 	if !body.Success {
-		return errors.New("Store DNS records error. Message:" + body.Message)
+		return errors.New("Store DNS Record Failed. Message:" + body.Message)
 	}
 
 	return nil
@@ -136,18 +135,23 @@ func (p *Provider) deleteDnsRecord(ctx context.Context, zoneUuid string, data dn
 		Host: data.Host,
 		Type: data.Type,
 		Record: deleteDnsDataRecord{
-			Content: data.Records[0].Content,
+			Content:  data.Records[0].Content,
+			Port:     data.Records[0].Port,
+			Weight:   data.Records[0].Weight,
+			Priority: data.Records[0].Priority,
+			Flags:    data.Records[0].Flags,
+			Tag:      data.Records[0].Tag,
 		},
 	}
 
-	var body storeDnsDataResp
-	err := p.doRequest(ctx, http.MethodDelete, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, body)
+	var body deleteDnsDataResp
+	err := p.doRequest(ctx, http.MethodDelete, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, &body)
 	if err != nil {
 		return err
 	}
 
 	if !body.Success {
-		return errors.New("Store DNS records error. Message:" + body.Message)
+		return errors.New("Delete DNS Record Failed. Message:" + body.Message)
 	}
 
 	return nil
