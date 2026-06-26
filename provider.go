@@ -5,7 +5,6 @@ package parspack
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/libdns/libdns"
 )
@@ -19,8 +18,6 @@ import (
 // Provider facilitates DNS record manipulation with ParsPack.
 type Provider struct {
 	APIToken string `json:"api_token,omitempty"`
-
-	client *http.Client
 }
 
 // GetRecords lists all the records in the zone.
@@ -153,10 +150,29 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	return nil, fmt.Errorf("TODO: not implemented")
 }
 
+// ListZones lists all the zones in the account.
+func (p *Provider) ListZones(ctx context.Context) ([]libdns.Zone, error) {
+	services, err := p.getServiceList(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	zones := make([]libdns.Zone, len(services))
+	for i, service := range services {
+		zones[i] = libdns.Zone{
+			// Add trailing dot to make it a FQDN
+			Name: service.TargetDomain + ".",
+		}
+	}
+
+	return zones, nil
+}
+
 // Interface guards
 var (
 	_ libdns.RecordGetter   = (*Provider)(nil)
 	_ libdns.RecordAppender = (*Provider)(nil)
 	_ libdns.RecordSetter   = (*Provider)(nil)
 	_ libdns.RecordDeleter  = (*Provider)(nil)
+	_ libdns.ZoneLister     = (*Provider)(nil)
 )

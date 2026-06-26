@@ -13,16 +13,18 @@ type parspackResponse struct {
 	Message string `json:"message"`
 }
 
-type serviceList struct {
+type getServiceListResp struct {
 	parspackResponse
-	Data []struct {
-		Id           string `json:"id"`
-		Uuid         string `json:"uuid"`
-		TargetDomain string `json:"target_domain"`
-		Status       string `json:"status"`
-		Plan         string `json:"plan"`
-		ExpireAt     string `json:"expire_at"`
-	} `json:"data"`
+	Data []service `json:"data"`
+}
+
+type service struct {
+	Id           string `json:"id"`
+	Uuid         string `json:"uuid"`
+	TargetDomain string `json:"target_domain"`
+	Status       string `json:"status"`
+	Plan         string `json:"plan"`
+	ExpireAt     string `json:"expire_at"`
 }
 
 type dnsDataList struct {

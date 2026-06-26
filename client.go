@@ -8,19 +8,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 const baseUrl = "https://my.parspack.com/cdnapi"
-
-func (p *Provider) getClient() *http.Client {
-	if p.client == nil {
-		p.client = &http.Client{
-			Timeout: 30 * time.Second,
-		}
-	}
-	return p.client
-}
 
 func (p *Provider) doRequest(ctx context.Context, method, path string, reqBody any, resBody any) error {
 	var body io.Reader
@@ -46,7 +36,7 @@ func (p *Provider) doRequest(ctx context.Context, method, path string, reqBody a
 
 	}
 
-	resp, err := p.getClient().Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -66,21 +56,30 @@ func (p *Provider) doRequest(ctx context.Context, method, path string, reqBody a
 	return nil
 }
 
-func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, error) {
-	var body serviceList
+func (p *Provider) getServiceList(ctx context.Context) ([]service, error) {
+	var body getServiceListResp
 
 	err := p.doRequest(ctx, http.MethodGet, "/external/api/v1/zones", nil, &body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if !body.Success {
-		return "", errors.New("Get service list error. Message:" + body.Message)
+		return nil, errors.New("Get service list error. Message:" + body.Message)
+	}
+
+	return body.Data, errors.New("Zone not found")
+}
+
+func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, error) {
+	services, err := p.getServiceList(ctx)
+	if err != nil {
+		return "", nil
 	}
 
 	domain := strings.TrimSuffix(zone, ".")
 
-	for _, service := range body.Data {
+	for _, service := range services {
 		if service.TargetDomain == domain {
 			return service.Uuid, nil
 		}
