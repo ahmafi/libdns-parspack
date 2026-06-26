@@ -89,7 +89,7 @@ func (p *Provider) zoneToZoneUuid(ctx context.Context, zone string) (string, err
 	return "", errors.New("Zone not found")
 }
 
-func (p *Provider) indexDnsRecord(ctx context.Context, zoneUuid string) (*dnsDataList, error) {
+func (p *Provider) indexDnsRecord(ctx context.Context, zoneUuid string) ([]dnsData, error) {
 	var body dnsDataList
 	err := p.doRequest(ctx, http.MethodGet, "/external/api/v2/zones/"+zoneUuid+"/dns-records", nil, &body)
 	if err != nil {
@@ -100,12 +100,49 @@ func (p *Provider) indexDnsRecord(ctx context.Context, zoneUuid string) (*dnsDat
 		return nil, errors.New("Get DNS records error. Message:" + body.Message)
 	}
 
-	return &body, nil
+	return body.Data, nil
 }
 
-func (p *Provider) storeDnsRecord(ctx context.Context, zoneUuid string, reqBody storeDnsData) error {
+func (p *Provider) storeDnsRecord(ctx context.Context, zoneUuid string, data dnsData) error {
+	reqBody := storeDnsData{
+		Host:  data.Host,
+		Type:  data.Type,
+		Ttl:   data.Ttl,
+		Proxy: data.Proxy,
+		Record: storeDnsDataRecord{
+			Content:  data.Records[0].Content,
+			Port:     data.Records[0].Port,
+			Weight:   data.Records[0].Weight,
+			Priority: data.Records[0].Priority,
+			Flags:    data.Records[0].Flags,
+			Tag:      data.Records[0].Tag,
+		},
+	}
+
 	var body storeDnsDataResp
 	err := p.doRequest(ctx, http.MethodPost, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, body)
+	if err != nil {
+		return err
+	}
+
+	if !body.Success {
+		return errors.New("Store DNS records error. Message:" + body.Message)
+	}
+
+	return nil
+}
+
+func (p *Provider) deleteDnsRecord(ctx context.Context, zoneUuid string, data dnsData) error {
+	reqBody := deleteDnsData{
+		Host: data.Host,
+		Type: data.Type,
+		Record: deleteDnsDataRecord{
+			Content: data.Records[0].Content,
+		},
+	}
+
+	var body storeDnsDataResp
+	err := p.doRequest(ctx, http.MethodDelete, "/external/api/v2/zones/"+zoneUuid+"/dns-records", reqBody, body)
 	if err != nil {
 		return err
 	}

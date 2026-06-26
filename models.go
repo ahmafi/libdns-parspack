@@ -142,39 +142,57 @@ type storeDnsDataResp struct {
 	Data []struct{} `json:"data"`
 }
 
-func toParsPackStoreDnsData(record libdns.Record) (storeDnsData, error) {
-	rr := record.RR()
+type deleteDnsData struct {
+	Host   string              `json:"host"`
+	Type   string              `json:"type"`
+	Record deleteDnsDataRecord `json:"record"`
+}
 
-	parspackData := storeDnsData{
-		Host:   rr.Name,
-		Type:   rr.Type,
-		Ttl:    int(rr.TTL.Seconds()),
-		Proxy:  "direct", // no CDN by default
-		Record: storeDnsDataRecord{},
+type deleteDnsDataRecord struct {
+	Content string `json:"content"`
+}
+
+type deleteDnsDataResp struct {
+	parspackResponse
+	Data []struct{} `json:"data"`
+}
+
+func toParsPackDnsData(input libdns.Record) (dnsData, error) {
+	rr := input.RR()
+
+	parspackData := dnsData{
+		Host:  rr.Name,
+		Type:  rr.Type,
+		Ttl:   int(rr.TTL.Seconds()),
+		Proxy: "direct", // no CDN by default
 	}
 
-	switch r := record.(type) {
+	record := dnsRecord{}
+
+	switch r := input.(type) {
 	case libdns.Address:
-		parspackData.Record.Content = r.IP.String()
+		record.Content = r.IP.String()
 	case libdns.CAA:
-		parspackData.Record.Content = r.Value
-		parspackData.Record.Flags = &r.Flags
-		parspackData.Record.Tag = &r.Tag
+		record.Content = r.Value
+		record.Flags = &r.Flags
+		record.Tag = &r.Tag
 	case libdns.CNAME:
-		parspackData.Record.Content = r.Target
+		record.Content = r.Target
 	case libdns.MX:
-		parspackData.Record.Content = r.Target
-		parspackData.Record.Priority = &r.Preference
+		record.Content = r.Target
+		record.Priority = &r.Preference
 	case libdns.NS:
-		parspackData.Record.Content = r.Target
+		record.Content = r.Target
 	case libdns.SRV:
-		parspackData.Record.Content = r.Target
-		parspackData.Record.Priority = &r.Priority
-		parspackData.Record.Weight = &r.Weight
-		parspackData.Record.Port = &r.Port
+		record.Content = r.Target
+		record.Priority = &r.Priority
+		record.Weight = &r.Weight
+		record.Port = &r.Port
 	case libdns.TXT:
-		parspackData.Record.Content = r.Text
+		record.Content = r.Text
 	}
+
+	parspackData.Records = []dnsRecord{record}
 
 	return parspackData, nil
 }
